@@ -1,629 +1,281 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ECOFY — Monitor de Planta</title>
+
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-:root {
-  --bg:       #08130C;
-  --surface:  #0E1F14;
-  --surface2: #132818;
-  --border:   rgba(34,197,94,0.12);
-  --green:    #22C55E;
-  --green2:   #16A34A;
-  --cyan:     #06B6D4;
-  --amber:    #F59E0B;
-  --yellow:   #EAB308;
-  --red:      #EF4444;
-  --text:     #D1FAE5;
-  --muted:    #6EE7B7;
-  --dim:      #1F2D23;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  min-height: 100vh;
-  padding: 28px 24px;
-  position: relative;
-  overflow-x: hidden;
-}
-
-/* background grid */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.page { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; }
-
-/* ── HEADER ── */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 28px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.logo { display: flex; align-items: center; gap: 12px; }
-
-.logo svg { width: 42px; height: 42px; }
-
-.logo-name {
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 6px;
-  color: var(--green);
-  line-height: 1;
-}
-
-.logo-sub {
-  font-size: 10px;
-  color: var(--muted);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-top: 3px;
-}
-
-.status-block { text-align: right; }
-
-.status-line {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
-  margin-bottom: 5px;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--red);
-  flex-shrink: 0;
-}
-
-.dot.online {
-  background: var(--green);
-  animation: heartbeat 2s ease-in-out infinite;
-}
-
-@keyframes heartbeat {
-  0%,100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(1.4); opacity: 0.7; }
-}
-
-.status-text { font-size: 12px; color: var(--muted); }
-
-.last-ts {
-  font-size: 11px;
-  color: #2D4A35;
-  font-family: 'Courier New', monospace;
-}
-
-/* ── GAUGES ── */
-.gauges {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 22px 16px 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  position: relative;
-  overflow: hidden;
-  transition: border-color 0.4s;
-}
-
-.card:hover { border-color: rgba(34,197,94,0.28); }
-
-.card-accent {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  border-radius: 18px 18px 0 0;
-}
-
-.card.temp  .card-accent { background: var(--amber); }
-.card.soil  .card-accent { background: var(--cyan); }
-.card.light .card-accent { background: var(--yellow); }
-
-.card-label {
-  font-size: 10px;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.card-label svg { width: 14px; height: 14px; }
-
-/* SVG gauge ring */
-.gauge-wrap {
-  position: relative;
-  width: 140px;
-  height: 140px;
-}
-
-.gauge-wrap svg {
-  transform: rotate(-90deg);
-}
-
-.ring-bg {
-  fill: none;
-  stroke: var(--dim);
-  stroke-width: 9;
-}
-
-.ring-fill {
-  fill: none;
-  stroke-width: 9;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1.1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ring-fill.temp  { stroke: var(--amber); }
-.ring-fill.soil  { stroke: var(--cyan); }
-.ring-fill.light { stroke: var(--yellow); }
-
-.gauge-center {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  pointer-events: none;
-}
-
-.gauge-num {
-  font-size: 26px;
-  font-weight: 700;
-  font-family: 'Courier New', monospace;
-  color: var(--text);
-  line-height: 1;
-  transition: color 0.5s;
-}
-
-.gauge-unit {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 3px;
-}
-
-/* ── BOTTOM ROW ── */
-.bottom {
-  display: grid;
-  grid-template-columns: 1fr 120px 1fr;
-  gap: 16px;
-  align-items: start;
-}
-
-/* Mini stat rows */
-.stats { display: flex; flex-direction: column; gap: 10px; }
-
-.stat {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.stat-k {
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.stat-v {
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.stat-v.ok   { color: var(--green); }
-.stat-v.warn { color: var(--amber); }
-.stat-v.err  { color: var(--red); }
-
-/* ── PLANT ── */
-#plant-svg {
-  display: block;
-  margin: 0 auto;
-  filter: drop-shadow(0 4px 12px rgba(34,197,94,0.25));
-}
-
-.leaf { transition: all 0.8s ease; }
-.l1 { animation: sway1 3.5s ease-in-out infinite; transform-origin: 50px 108px; }
-.l2 { animation: sway2 3.5s ease-in-out infinite; transform-origin: 50px 108px; }
-.l3 { animation: sway3 2.8s ease-in-out infinite; transform-origin: 50px 90px; }
-.l4 { animation: sway4 4s ease-in-out infinite; transform-origin: 50px 75px; }
-
-@keyframes sway1 { 0%,100%{transform:rotate(-2deg)}50%{transform:rotate(3deg)} }
-@keyframes sway2 { 0%,100%{transform:rotate(2deg)}50%{transform:rotate(-3deg)} }
-@keyframes sway3 { 0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)} }
-@keyframes sway4 { 0%,100%{transform:rotate(1deg)}50%{transform:rotate(-2deg)} }
-
-/* ── ESTADO ── */
-.estado-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 18px 20px;
-}
-
-.estado-title {
-  font-size: 10px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 10px;
-  text-align: center;
-}
-
-.estado-badge {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 4px;
-  text-align: center;
-  padding: 10px 8px;
-  border-radius: 8px;
-  transition: all 0.6s ease;
-}
-
-.estado-badge.OPTIMO {
-  color: var(--green);
-  background: rgba(34,197,94,0.08);
-  border: 1px solid rgba(34,197,94,0.2);
-}
-
-.estado-badge.MEDIO {
-  color: var(--amber);
-  background: rgba(245,158,11,0.08);
-  border: 1px solid rgba(245,158,11,0.2);
-}
-
-.estado-badge.SECO {
-  color: var(--red);
-  background: rgba(239,68,68,0.08);
-  border: 1px solid rgba(239,68,68,0.2);
-  animation: alert 1.5s ease-in-out infinite;
-}
-
-@keyframes alert {
-  0%,100% { opacity: 1; }
-  50%      { opacity: 0.6; }
-}
-
-.estado-desc {
-  font-size: 11px;
-  color: var(--muted);
-  text-align: center;
-  margin-top: 8px;
-}
-
-/* ── PARTICLES ── */
-.p {
-  position: fixed;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  pointer-events: none;
-  animation: rise 10s linear infinite;
-}
-
-@keyframes rise {
-  0%   { transform: translateY(100vh); opacity: 0; }
-  8%   { opacity: 0.4; }
-  92%  { opacity: 0.15; }
-  100% { transform: translateY(-60px) translateX(20px); opacity: 0; }
-}
-
-/* ── RESPONSIVE ── */
-@media (max-width: 640px) {
-  .gauges  { grid-template-columns: 1fr; }
-  .bottom  { grid-template-columns: 1fr; }
-  .bottom .plant-col { order: -1; }
-}
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#08130C;--sf:#0E1F14;--sf2:#132818;--bd:rgba(34,197,94,.12);--ac:#22C55E;--cy:#06B6D4;--am:#F59E0B;--ye:#EAB308;--re:#EF4444;--tx:#D1FAE5;--mu:#6EE7B7;--dm:#1A2F20}
+.ew{border-radius:14px;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;position:relative;overflow:hidden;background:linear-gradient(150deg,var(--bg) 0%,var(--bg) 100%);transition:background 3s ease}
+.ew::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(34,197,94,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(34,197,94,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}
+.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd);padding-bottom:14px;margin-bottom:16px;position:relative;flex-wrap:wrap;gap:10px}
+.lr{display:flex;align-items:center;gap:10px}
+.ln{font-size:20px;font-weight:800;letter-spacing:5px;color:var(--ac);transition:color 2s}
+.ls{font-size:9px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
+.hr{display:flex;align-items:center;gap:10px}
+.bex{display:flex;align-items:center;gap:6px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22);color:var(--ac);border-radius:8px;padding:7px 12px;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.bex:hover{background:rgba(34,197,94,.16)}
+.bex svg{width:13px;height:13px}
+.odot{width:8px;height:8px;border-radius:50%;background:var(--ac);animation:hb 2s ease-in-out infinite;flex-shrink:0}
+@keyframes hb{0%,100%{transform:scale(1)}50%{transform:scale(1.5);opacity:.6}}
+.stl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mu)}
+.cb{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.2);border:1px solid var(--bd);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--mu);margin-bottom:16px;width:fit-content;transition:all 2s}
+.ci{font-size:15px}.cn{font-weight:600;color:var(--ac);letter-spacing:.5px;transition:color 2s}
+.gg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.gc{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:16px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;overflow:hidden;transition:background 2s,border-color 2s}
+.gac{position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.gc.t .gac{background:var(--am)}.gc.s .gac{background:var(--cy)}.gc.l .gac{background:var(--ye)}
+.gl{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--mu)}
+.gw{position:relative;width:110px;height:110px}
+.gw svg{transform:rotate(-90deg)}
+.rb{fill:none;stroke:var(--dm);stroke-width:9}
+.rf{fill:none;stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset 1.1s cubic-bezier(.4,0,.2,1)}
+.rf.t{stroke:var(--am)}.rf.s{stroke:var(--cy)}.rf.l{stroke:var(--ye)}
+.gce{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.gn{font-size:22px;font-weight:700;font-family:'Courier New',monospace;color:var(--tx);line-height:1}
+.gu{font-size:10px;color:var(--mu);margin-top:2px}
+.bot{display:grid;grid-template-columns:1fr 120px 1fr;gap:12px;align-items:start}
+.sts{display:flex;flex-direction:column;gap:7px}
+.sr{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;transition:background 2s}
+.sk{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mu)}
+.sv{font-family:'Courier New',monospace;font-size:12px;font-weight:600;color:var(--tx)}
+.sv.ok{color:var(--ac)}.sv.w{color:var(--am)}.sv.e{color:var(--re)}
+.rw{display:flex;justify-content:center}
+.rl1{animation:rla 3.5s ease-in-out infinite;transform-origin:60px 82px}
+.rl2{animation:rlb 3.2s ease-in-out infinite;transform-origin:60px 77px}
+.rl3{animation:rlc 2.9s ease-in-out infinite;transform-origin:60px 66px}
+.rl4{animation:rld 4s ease-in-out infinite;transform-origin:60px 60px}
+.rl5{animation:rle 3.8s ease-in-out infinite;transform-origin:60px 52px}
+@keyframes rla{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(4deg)}}
+@keyframes rlb{0%,100%{transform:rotate(2deg)}50%{transform:rotate(-4deg)}}
+@keyframes rlc{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+@keyframes rld{0%,100%{transform:rotate(1deg)}50%{transform:rotate(-3deg)}}
+@keyframes rle{0%,100%{transform:rotate(-1deg)}50%{transform:rotate(2deg)}}
+.wilting .rl1{animation:w1 4s ease-in-out infinite;transform-origin:60px 82px}
+.wilting .rl2{animation:w2 4s ease-in-out infinite;transform-origin:60px 77px}
+.wilting .rl3{animation:w3 4s ease-in-out infinite;transform-origin:60px 66px}
+.wilting .rl4{animation:w4 4s ease-in-out infinite;transform-origin:60px 60px}
+.wilting .rl5{animation:w5 4s ease-in-out infinite;transform-origin:60px 52px}
+@keyframes w1{0%,100%{transform:rotate(-38deg)}50%{transform:rotate(-32deg)}}
+@keyframes w2{0%,100%{transform:rotate(36deg)}50%{transform:rotate(30deg)}}
+@keyframes w3{0%,100%{transform:rotate(-30deg)}50%{transform:rotate(-24deg)}}
+@keyframes w4{0%,100%{transform:rotate(28deg)}50%{transform:rotate(22deg)}}
+@keyframes w5{0%,100%{transform:rotate(7deg)}50%{transform:rotate(2deg)}}
+.ec{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;transition:background 2s}
+.et{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:8px;text-align:center}
+.eb{font-size:18px;font-weight:800;letter-spacing:3px;text-align:center;padding:8px;border-radius:7px;transition:all .8s}
+.eb.O{color:#22C55E;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2)}
+.eb.M{color:var(--am);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2)}
+.eb.S{color:var(--re);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);animation:ap 1.5s ease-in-out infinite}
+@keyframes ap{0%,100%{opacity:1}50%{opacity:.5}}
+.ed{font-size:10px;color:var(--mu);text-align:center;margin-top:7px}
+.hs{margin-top:14px}
+.hh{display:flex;align-items:center;justify-content:space-between;background:var(--sf);border:1px solid var(--bd);border-radius:9px;padding:9px 14px;cursor:pointer;user-select:none;transition:border-color .3s}
+.hh:hover{border-color:rgba(34,197,94,.3)}
+.ht{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);display:flex;align-items:center;gap:8px}
+.hcnt{font-size:10px;background:rgba(34,197,94,.1);color:var(--ac);padding:2px 8px;border-radius:8px;font-family:monospace}
+.harr{color:var(--mu);font-size:13px;transition:transform .3s}
+.harr.o{transform:rotate(180deg)}
+.hb{margin-top:7px;background:var(--sf);border:1px solid var(--bd);border-radius:9px;overflow:hidden;max-height:0;transition:max-height .5s ease,opacity .4s;opacity:0}
+.hb.o{max-height:260px;opacity:1}
+.htw{overflow:auto;max-height:240px}
+table{width:100%;border-collapse:collapse;font-size:10px;font-family:'Courier New',monospace}
+thead th{padding:7px 10px;text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mu);background:var(--sf2);position:sticky;top:0;white-space:nowrap}
+tbody tr{border-top:1px solid var(--bd)}
+tbody tr:hover{background:var(--sf2)}
+td{padding:6px 10px;white-space:nowrap;color:var(--tx)}
+.tok{color:#22C55E}.tw{color:var(--am)}.te{color:var(--re)}
+.p{position:absolute;width:3px;height:3px;border-radius:50%;pointer-events:none;animation:rise 9s linear infinite}
+@keyframes rise{0%{transform:translateY(400px);opacity:0}8%{opacity:.3}92%{opacity:.1}100%{transform:translateY(-20px) translateX(12px);opacity:0}}
 </style>
-</head>
-<body>
 
-<!-- Particles -->
-<div class="p" style="left:8%;background:#22C55E;animation-delay:0s;"></div>
-<div class="p" style="left:22%;background:#06B6D4;animation-delay:2.5s;"></div>
-<div class="p" style="left:45%;background:#22C55E;animation-delay:5s;"></div>
-<div class="p" style="left:68%;background:#4ADE80;animation-delay:1.2s;"></div>
-<div class="p" style="left:85%;background:#06B6D4;animation-delay:7s;"></div>
-<div class="p" style="left:55%;background:#22C55E;animation-delay:3.8s;"></div>
+<div class="ew" id="ew">
+<div class="p" style="left:8%;animation-delay:0s;background:#22C55E" id="pc1"></div>
+<div class="p" style="left:30%;animation-delay:2s;background:#06B6D4" id="pc2"></div>
+<div class="p" style="left:60%;animation-delay:4s;background:#22C55E" id="pc3"></div>
+<div class="p" style="left:82%;animation-delay:1.5s;background:#4ADE80" id="pc4"></div>
 
-<div class="page">
+<div class="hdr">
+  <div class="lr">
+    <svg width="36" height="36" viewBox="0 0 42 42" fill="none">
+      <circle cx="21" cy="21" r="20" stroke="var(--ac)" stroke-width="1.5"/>
+      <path d="M21 32C21 26 21 20 21 16C15 12 12 6 12 6C17 9 20 16 21 16C22 16 25 9 30 6C30 6 27 12 21 16" fill="var(--ac)"/>
+      <ellipse cx="21" cy="33" rx="5" ry="2" fill="var(--ac)" opacity=".6"/>
+    </svg>
+    <div><div class="ln">ECOFY</div><div class="ls">Monitor de Rábano</div></div>
+  </div>
+  <div class="hr">
+    <button class="bex" onclick="demoExport()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6M8 13h2l2 4 2-4h2"/></svg>
+      Exportar Excel
+    </button>
+    <div class="stl"><div class="odot"></div><span style="font-size:11px;color:var(--mu)">Demo activa</span></div>
+  </div>
+</div>
 
-  <!-- HEADER -->
-  <div class="header">
-    <div class="logo">
-      <svg viewBox="0 0 42 42" fill="none">
-        <circle cx="21" cy="21" r="20" stroke="#22C55E" stroke-width="1.5"/>
-        <path d="M21 32 C21 26 21 20 21 16 C15 12 12 6 12 6 C17 9 20 16 21 16 C22 16 25 9 30 6 C30 6 27 12 21 16" fill="#22C55E"/>
-        <ellipse cx="21" cy="33" rx="6" ry="2.5" fill="#16A34A"/>
-      </svg>
-      <div>
-        <div class="logo-name">ECOFY</div>
-        <div class="logo-sub">Monitor de Planta en Tiempo Real</div>
-      </div>
-    </div>
-    <div class="status-block">
-      <div class="status-line">
-        <div class="dot" id="dot"></div>
-        <span class="status-text" id="statusTxt">Conectando a Firebase...</span>
-      </div>
-      <div class="last-ts" id="lastTs">—</div>
-    </div>
+<div class="cb"><span class="ci" id="ci">🌿</span><span>Clima:</span><span class="cn" id="cn">ÓPTIMO</span></div>
+
+<div class="gg">
+  <div class="gc t"><div class="gac"></div><div class="gl">Temperatura</div>
+    <div class="gw"><svg width="110" height="110" viewBox="0 0 110 110"><circle class="rb" cx="55" cy="55" r="44"/><circle class="rf t" id="rt" cx="55" cy="55" r="44" stroke-dasharray="276.5" stroke-dashoffset="276.5"/></svg>
+    <div class="gce"><div class="gn" id="vt">27.0</div><div class="gu">°C</div></div></div>
+  </div>
+  <div class="gc s"><div class="gac"></div><div class="gl">Humedad Suelo</div>
+    <div class="gw"><svg width="110" height="110" viewBox="0 0 110 110"><circle class="rb" cx="55" cy="55" r="44"/><circle class="rf s" id="rs" cx="55" cy="55" r="44" stroke-dasharray="276.5" stroke-dashoffset="276.5"/></svg>
+    <div class="gce"><div class="gn" id="vs">68</div><div class="gu">%</div></div></div>
+  </div>
+  <div class="gc l"><div class="gac"></div><div class="gl">Luz</div>
+    <div class="gw"><svg width="110" height="110" viewBox="0 0 110 110"><circle class="rb" cx="55" cy="55" r="44"/><circle class="rf l" id="rl" cx="55" cy="55" r="44" stroke-dasharray="276.5" stroke-dashoffset="276.5"/></svg>
+    <div class="gce"><div class="gn" id="vl">42</div><div class="gu">%</div></div></div>
+  </div>
+</div>
+
+<div class="bot">
+  <div class="sts">
+    <div class="sr"><span class="sk">Ping</span><span class="sv ok">ok</span></div>
+    <div class="sr"><span class="sk">Humedad Aire</span><span class="sv">N/A</span></div>
+    <div class="sr"><span class="sk">Lecturas guardadas</span><span class="sv ok" id="vcnt">0</span></div>
+    <div class="sr"><span class="sk">Última lectura</span><span class="sv" id="vf" style="font-size:10px">—</span></div>
   </div>
 
-  <!-- GAUGES -->
-  <div class="gauges">
-
-    <!-- TEMPERATURA -->
-    <div class="card temp">
-      <div class="card-accent"></div>
-      <div class="card-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
-        </svg>
-        Temperatura
-      </div>
-      <div class="gauge-wrap">
-        <svg width="140" height="140" viewBox="0 0 140 140">
-          <circle class="ring-bg"   cx="70" cy="70" r="56" stroke-dasharray="351.9"/>
-          <circle class="ring-fill temp" id="rT" cx="70" cy="70" r="56"
-            stroke-dasharray="351.9" stroke-dashoffset="351.9"/>
-        </svg>
-        <div class="gauge-center">
-          <div class="gauge-num" id="vT">—</div>
-          <div class="gauge-unit">°C</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- HUMEDAD SUELO -->
-    <div class="card soil">
-      <div class="card-accent"></div>
-      <div class="card-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-        </svg>
-        Humedad Suelo
-      </div>
-      <div class="gauge-wrap">
-        <svg width="140" height="140" viewBox="0 0 140 140">
-          <circle class="ring-bg"    cx="70" cy="70" r="56" stroke-dasharray="351.9"/>
-          <circle class="ring-fill soil" id="rS" cx="70" cy="70" r="56"
-            stroke-dasharray="351.9" stroke-dashoffset="351.9"/>
-        </svg>
-        <div class="gauge-center">
-          <div class="gauge-num" id="vS">—</div>
-          <div class="gauge-unit">%</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- LUZ -->
-    <div class="card light">
-      <div class="card-accent"></div>
-      <div class="card-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="4"/>
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
-        </svg>
-        Luz
-      </div>
-      <div class="gauge-wrap">
-        <svg width="140" height="140" viewBox="0 0 140 140">
-          <circle class="ring-bg"     cx="70" cy="70" r="56" stroke-dasharray="351.9"/>
-          <circle class="ring-fill light" id="rL" cx="70" cy="70" r="56"
-            stroke-dasharray="351.9" stroke-dashoffset="351.9"/>
-        </svg>
-        <div class="gauge-center">
-          <div class="gauge-num" id="vL">—</div>
-          <div class="gauge-unit">%</div>
-        </div>
-      </div>
-    </div>
-
+  <div class="rw">
+    <svg id="rabano" width="110" height="185" viewBox="0 0 120 200" style="filter:drop-shadow(0 3px 10px rgba(34,197,94,.3))">
+      <defs>
+        <radialGradient id="rg" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#FCA5A5" stop-opacity=".8"/><stop offset="55%" stop-color="#EF4444" stop-opacity="0"/></radialGradient>
+        <radialGradient id="rb2" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#EF4444"/><stop offset="100%" stop-color="#991B1B"/></radialGradient>
+      </defs>
+      <rect x="0" y="118" width="120" height="82" fill="#2A140C" opacity=".85"/>
+      <ellipse cx="30" cy="128" rx="12" ry="3" fill="#1A0C06" opacity=".5"/>
+      <ellipse cx="80" cy="133" rx="10" ry="2.5" fill="#1A0C06" opacity=".4"/>
+      <path d="M60 155 Q70 162 75 172" stroke="#78350F" stroke-width="1.5" fill="none" opacity=".7"/>
+      <path d="M60 162 Q48 168 44 178" stroke="#78350F" stroke-width="1.5" fill="none" opacity=".7"/>
+      <ellipse cx="60" cy="112" rx="30" ry="38" fill="url(#rb2)"/>
+      <ellipse cx="60" cy="112" rx="30" ry="38" fill="url(#rg)"/>
+      <ellipse cx="75" cy="118" rx="10" ry="18" fill="#7F1D1D" opacity=".35"/>
+      <ellipse cx="60" cy="146" rx="7" ry="5" fill="#FEF9C3" opacity=".75"/>
+      <path d="M60 82 Q64 100 62 140" stroke="#B91C1C" stroke-width="1" fill="none" opacity=".4"/>
+      <ellipse cx="60" cy="78" rx="22" ry="9" fill="#166534"/>
+      <ellipse cx="60" cy="76" rx="16" ry="6" fill="#15803D"/>
+      <path d="M0 118 Q30 122 60 120 Q90 118 120 122 L120 130 Q90 126 60 124 Q30 126 0 128 Z" fill="#3D1F14" opacity=".9"/>
+      <path d="M60 72 Q59 58 60 44" stroke="#15803D" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <path class="rl1" d="M60 80 C48 68 30 60 18 46 C28 44 48 56 60 78" fill="#16A34A"/>
+      <path class="rl2" d="M60 75 C72 63 90 54 102 40 C92 40 72 52 60 73" fill="#22C55E"/>
+      <path class="rl3" d="M60 66 C48 52 38 38 34 22 C44 26 56 44 60 64" fill="#4ADE80"/>
+      <path class="rl4" d="M60 62 C72 48 82 32 86 16 C76 22 66 40 60 60" fill="#86EFAC"/>
+      <path class="rl5" d="M60 52 C56 38 57 24 60 10 C63 24 64 38 60 52" fill="#22C55E"/>
+      <g id="gotas" opacity="0" style="transition:opacity 1s">
+        <ellipse cx="26" cy="56" rx="3" ry="4" fill="#7DD3FC" opacity=".8"/>
+        <ellipse cx="95" cy="50" rx="2.5" ry="3.5" fill="#7DD3FC" opacity=".7"/>
+        <ellipse cx="42" cy="30" rx="2" ry="3" fill="#7DD3FC" opacity=".6"/>
+      </g>
+    </svg>
   </div>
 
-  <!-- BOTTOM ROW -->
-  <div class="bottom">
-
-    <!-- Stats left -->
-    <div class="stats">
-      <div class="stat">
-        <span class="stat-k">Ping</span>
-        <span class="stat-v ok" id="vPing">—</span>
-      </div>
-      <div class="stat">
-        <span class="stat-k">Humedad Aire</span>
-        <span class="stat-v" id="vAir">—</span>
-      </div>
-      <div class="stat">
-        <span class="stat-k">Fecha / Hora</span>
-        <span class="stat-v" id="vFecha" style="font-size:11px">—</span>
-      </div>
+  <div>
+    <div class="ec">
+      <div class="et">Estado del Rábano</div>
+      <div class="eb O" id="ve">OPTIMO</div>
+      <div class="ed" id="vd">Rábano en condiciones ideales</div>
     </div>
-
-    <!-- Plant center -->
-    <div class="plant-col">
-      <svg id="plant-svg" width="100" height="150" viewBox="0 0 100 150">
-        <!-- Maceta -->
-        <rect x="32" y="120" width="36" height="22" rx="3" fill="#7C2D2D"/>
-        <rect x="27" y="116" width="46" height="9" rx="2" fill="#9B3838"/>
-        <!-- Tierra -->
-        <ellipse cx="50" cy="117" rx="23" ry="5" fill="#3B1F1A"/>
-        <!-- Tallo -->
-        <line x1="50" y1="116" x2="50" y2="70" stroke="#22C55E" stroke-width="3.5" stroke-linecap="round" id="stem"/>
-        <!-- Hojas -->
-        <ellipse class="leaf l1" id="ll" cx="34" cy="96" rx="16" ry="9" fill="#16A34A"/>
-        <ellipse class="leaf l2" id="lr" cx="66" cy="96" rx="16" ry="9" fill="#22C55E"/>
-        <ellipse class="leaf l3" id="lm" cx="38" cy="80" rx="13" ry="7" fill="#15803D"/>
-        <ellipse class="leaf l4" id="lt" cx="50" cy="65" rx="10" ry="16" fill="#4ADE80"/>
-        <!-- Flor / fruto -->
-        <circle id="flower" cx="50" cy="56" r="7" fill="#86EFAC" opacity="0.9"/>
-        <circle cx="50" cy="56" r="3" fill="#22C55E" opacity="0.8"/>
-      </svg>
-    </div>
-
-    <!-- Estado right -->
-    <div>
-      <div class="estado-card">
-        <div class="estado-title">Estado de la Planta</div>
-        <div class="estado-badge OPTIMO" id="vEstado">—</div>
-        <div class="estado-desc" id="descEstado">Esperando datos...</div>
-      </div>
-    </div>
-
   </div>
+</div>
 
+<div class="hs">
+  <div class="hh" onclick="toggleH()">
+    <div class="ht">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Historial de Lecturas
+      <span class="hcnt" id="hcnt">0 registros</span>
+    </div>
+    <span class="harr" id="harr">▼</span>
+  </div>
+  <div class="hb" id="hb">
+    <div class="htw">
+      <table><thead><tr><th>#</th><th>Fecha/Hora</th><th>T°C</th><th>H.Suelo%</th><th>Luz%</th><th>Estado</th></tr></thead>
+      <tbody id="hrows"></tbody></table>
+    </div>
+  </div>
+</div>
 </div>
 
 <script>
-/* ═══════════════════════════════════════════
-   CONFIGURA TU URL DE FIREBASE AQUÍ
-   ═══════════════════════════════════════════ */
-const FIREBASE_URL =
-  'https://plantasfirebase-8290b-default-rtdb.firebaseio.com/lectura_sensores.json';
+const C=276.5;
+const datos=[
+  {t:27,s:68,l:42,cl:'optimal',ci:'🌿',cn:'ÓPTIMO',e:'O',et:'OPTIMO',ed:'Rábano en condiciones ideales'},
+  {t:28.5,s:64,l:70,cl:'optimal',ci:'🌿',cn:'ÓPTIMO',e:'O',et:'OPTIMO',ed:'Rábano en condiciones ideales'},
+  {t:35.2,s:30,l:75,cl:'hot',ci:'🌡',cn:'CALUROSO',e:'M',et:'MEDIO',ed:'Necesita un poco de agua'},
+  {t:36,s:22,l:68,cl:'drought',ci:'🌵',cn:'SECO',e:'S',et:'SECO',ed:'Regar inmediatamente'},
+  {t:15.5,s:72,l:25,cl:'cold',ci:'❄',cn:'FRÍO',e:'O',et:'OPTIMO',ed:'Rábano en condiciones ideales'},
+  {t:13,s:75,l:8,cl:'night',ci:'🌙',cn:'NOCTURNO',e:'O',et:'OPTIMO',ed:'Rábano en condiciones ideales'},
+  {t:24,s:55,l:45,cl:'mild',ci:'⛅',cn:'TEMPLADO',e:'M',et:'MEDIO',ed:'Necesita un poco de agua'},
+  {t:27,s:70,l:50,cl:'optimal',ci:'🌿',cn:'ÓPTIMO',e:'O',et:'OPTIMO',ed:'Rábano en condiciones ideales'},
+];
+let idx=0, histOpen=false;
+const history=[];
 
-/* ═══════════════════════════════════════════ */
+const themes={
+  optimal:{bg:'linear-gradient(150deg,#041A08 0%,#08130C 100%)',ac:'#22C55E'},
+  hot:{bg:'linear-gradient(150deg,#2D0E00 0%,#150800 100%)',ac:'#F97316'},
+  cold:{bg:'linear-gradient(150deg,#04091A 0%,#060C20 100%)',ac:'#60A5FA'},
+  drought:{bg:'linear-gradient(150deg,#2D1800 0%,#1A1000 100%)',ac:'#D97706'},
+  night:{bg:'linear-gradient(150deg,#04080F 0%,#08101E 100%)',ac:'#818CF8'},
+  mild:{bg:'linear-gradient(150deg,#08130C 0%,#0D1A12 100%)',ac:'#4ADE80'},
+};
 
-const CIRC = 351.9;
+function setRing(id,pct){document.getElementById(id).style.strokeDashoffset=C*(1-Math.max(0,Math.min(100,pct))/100)}
 
-function setRing(id, pct) {
-  const el = document.getElementById(id);
-  const offset = CIRC * (1 - Math.max(0, Math.min(100, pct)) / 100);
-  el.style.strokeDashoffset = offset;
+function update(){
+  const d=datos[idx%datos.length]; idx++;
+  const now=new Date().toLocaleTimeString('es-EC');
+  document.getElementById('vt').textContent=d.t.toFixed(1);
+  document.getElementById('vs').textContent=d.s;
+  document.getElementById('vl').textContent=d.l;
+  setRing('rt',(d.t/50)*100);
+  setRing('rs',d.s);
+  setRing('rl',d.l);
+  document.getElementById('ci').textContent=d.ci;
+  document.getElementById('cn').textContent=d.cn;
+  document.getElementById('vf').textContent='Hoy '+now;
+  const ew=document.getElementById('ew');
+  const th=themes[d.cl]||themes.optimal;
+  ew.style.background=th.bg;
+  document.querySelectorAll('.pc1,.pc2,.pc3,.pc4').forEach(p=>p.style.background=th.ac);
+  document.getElementById('pc1').style.background=th.ac;
+  document.getElementById('pc2').style.background=th.ac;
+  document.getElementById('pc3').style.background=th.ac;
+  document.getElementById('pc4').style.background=th.ac;
+  const eb=document.getElementById('ve');
+  const cfg={O:{cls:'eb O',txt:'OPTIMO'},M:{cls:'eb M',txt:'MEDIO'},S:{cls:'eb S',txt:'SECO'}};
+  const ec=cfg[d.e]||cfg.O;
+  eb.className=ec.cls; eb.textContent=ec.txt;
+  document.getElementById('vd').textContent=d.ed;
+  const rab=document.getElementById('rabano');
+  const gotas=document.getElementById('gotas');
+  rab.classList.remove('wilting');
+  if(d.s>60){gotas.style.opacity='1';}
+  else if(d.s>35){gotas.style.opacity='0';}
+  else{gotas.style.opacity='0';rab.classList.add('wilting');}
+  history.push({n:history.length+1,fh:'Hoy '+now,t:d.t,s:d.s,l:d.l,e:ec.txt});
+  document.getElementById('vcnt').textContent=history.length;
+  document.getElementById('hcnt').textContent=history.length+' registros';
+  renderRows();
 }
 
-function animNum(id, target, decimals) {
-  const el = document.getElementById(id);
-  const from = parseFloat(el.textContent) || 0;
-  let start = null;
-  const dur = 900;
-  function step(ts) {
-    if (!start) start = ts;
-    const p = Math.min((ts - start) / dur, 1);
-    const ease = 1 - Math.pow(1 - p, 3);
-    const v = from + (target - from) * ease;
-    el.textContent = decimals ? v.toFixed(decimals) : Math.round(v);
-    if (p < 1) requestAnimationFrame(step);
-    else el.textContent = decimals ? target.toFixed(decimals) : Math.round(target);
-  }
-  requestAnimationFrame(step);
+function renderRows(){
+  const tbody=document.getElementById('hrows');
+  const rows=history.slice(-20).reverse();
+  tbody.innerHTML=rows.map(r=>{
+    const c=r.e==='OPTIMO'?'tok':r.e==='MEDIO'?'tw':'te';
+    return`<tr><td style="color:#4A6A54">${r.n}</td><td>${r.fh}</td><td>${r.t.toFixed(1)}</td><td>${r.s}</td><td>${r.l}</td><td class="${c}">${r.e}</td></tr>`;
+  }).join('');
 }
 
-function updatePlant(soil) {
-  const flower = document.getElementById('flower');
-  const ll = document.getElementById('ll');
-  const lr = document.getElementById('lr');
-  const lm = document.getElementById('lm');
-  if (soil > 60) {
-    flower.setAttribute('fill', '#86EFAC'); flower.setAttribute('r', '7');
-    ll.setAttribute('fill', '#16A34A'); lr.setAttribute('fill', '#22C55E');
-    lm.setAttribute('fill', '#15803D');
-    ll.setAttribute('transform', ''); lr.setAttribute('transform', '');
-  } else if (soil > 35) {
-    flower.setAttribute('fill', '#FCD34D'); flower.setAttribute('r', '5');
-    ll.setAttribute('fill', '#4D7C0F'); lr.setAttribute('fill', '#65A30D');
-    lm.setAttribute('fill', '#3F6212');
-    ll.setAttribute('transform', ''); lr.setAttribute('transform', '');
-  } else {
-    flower.setAttribute('fill', '#FCA5A5'); flower.setAttribute('r', '4');
-    ll.setAttribute('fill', '#7C2D12'); lr.setAttribute('fill', '#9A3412');
-    lm.setAttribute('fill', '#78350F');
-    ll.setAttribute('transform', 'rotate(20, 50, 116)');
-    lr.setAttribute('transform', 'rotate(-20, 50, 116)');
-  }
+function toggleH(){
+  histOpen=!histOpen;
+  document.getElementById('hb').classList.toggle('o',histOpen);
+  document.getElementById('harr').classList.toggle('o',histOpen);
 }
 
-function setEstado(s, soil) {
-  const el = document.getElementById('vEstado');
-  const desc = document.getElementById('descEstado');
-  const estado = s || (soil > 60 ? 'OPTIMO' : soil > 35 ? 'MEDIO' : 'SECO');
-  el.className = 'estado-badge ' + estado;
-  el.textContent = estado;
-  const msgs = {
-    OPTIMO: 'Planta en condiciones ideales',
-    MEDIO:  'Requiere algo de agua pronto',
-    SECO:   'Regar inmediatamente'
-  };
-  desc.textContent = msgs[estado] || '';
+function demoExport(){
+  alert('En el archivo real esto descarga un Excel (.xlsx) con todos los '+history.length+' registros guardados.\n\nColumnas: Fecha/Hora | Temperatura | Humedad Suelo | Luz | Humedad Aire | Estado | Ping');
 }
 
-async function fetchData() {
-  try {
-    const res = await fetch(FIREBASE_URL);
-    if (!res.ok) throw new Error(res.status);
-    const d = await res.json();
-    if (!d) throw new Error('empty');
-
-    document.getElementById('dot').className = 'dot online';
-    document.getElementById('statusTxt').textContent = 'Firebase conectado';
-    document.getElementById('lastTs').textContent =
-      'Actualizado: ' + new Date().toLocaleTimeString('es-EC');
-
-    const temp  = d.temperatura_C    ?? 0;
-    const soil  = d.humedadSuelo_PCT ?? 0;
-    const light = d.luz_PCT          ?? 0;
-    const air   = d.humedad_PCT      ?? 0;
-
-    animNum('vT', temp, 1);
-    animNum('vS', soil, 0);
-    animNum('vL', light, 0);
-
-    setRing('rT', (temp / 50) * 100);
-    setRing('rS', soil);
-    setRing('rL', light);
-
-    document.getElementById('vPing').textContent  = d.ping ?? '—';
-    document.getElementById('vAir').textContent   = air > 0 ? air.toFixed(1) + ' %' : 'N/A';
-    document.getElementById('vFecha').textContent = d.fechaHora ?? '—';
-
-    setEstado(d.estado, soil);
-    updatePlant(soil);
-
-  } catch (e) {
-    document.getElementById('dot').className = 'dot';
-    document.getElementById('statusTxt').textContent = 'Sin conexión con Firebase';
-    console.error('Firebase error:', e);
-  }
-}
-
-fetchData();
-setInterval(fetchData, 5000);
+update();
+setInterval(update,3000);
 </script>
-</body>
-</html>
